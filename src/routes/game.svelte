@@ -1,24 +1,103 @@
 <script lang="ts">
 	import kaboom from 'kaboom';
 	import { onMount } from 'svelte';
+	import seedrandom from "seedrandom";
 
 	onMount(async () => {
+		let currentFrame = 0;
+		let randomCycle = 0;
+
 		const g = kaboom({
 			width: 1280,
 			height: 720,
 			root: document.getElementById('game') as HTMLDivElement
 		});
 
-		const gameOverScene = scene("gameOver", () => {
+		const menuScene = scene("menu", async () => {
+			// Render background
+			const bgSprite = await loadSprite('bg', '/background_blue.png');
+			const bg = add([
+				sprite('bg', { tiled: true, width: g.width(), height: g.height() }),
+				pos(0, 0),
+				fixed()
+			]);
+
+			// Render title
 			add([
-				text("GAME OVER ", {size: 40, font: "sink"}),
-				pos(center()),
+				text("Welcome!", {size: 48, font: "sink"}),
+				pos(center().x, center().y - 100),
 				g.origin("center"),
 				layer("ui"),
+			]);
+
+			add([
+				text("Click anywhere\nto start a game", {size: 32, font: "sink"}),
+				pos(center().x, center().y + 100),
+				g.origin("center"),
+				layer("ui"),
+			]);
+
+			onMousePress(() => {
+				go("game");
+			});
+		});
+
+		const gameOverScene = scene("gameOver", async (seed, score, moves) => {
+			console.log(seed, score, moves);
+
+			// Render background
+			const bgSprite = await loadSprite('bg', '/background_red.png');
+			const bg = add([
+				sprite('bg', { tiled: true, width: g.width(), height: g.height() }),
+				pos(0, 0),
+				fixed()
+			]);
+
+			// Render title
+			add([
+				text("Welcome!", {size: 48, font: "sink"}),
+				pos(center().x, center().y - 100),
+				g.origin("center"),
+				layer("ui"),
+			]);
+
+			add([
+				text("Click anywhere\nto play again", {size: 32, font: "sink"}),
+				pos(center().x, center().y + 100),
+				g.origin("center"),
+				layer("ui"),
+			]);
+
+			onMousePress(() => {
+				go("game");
+			});
+
+			// Show score
+			const scoreText = add([
+				pos(32, 32),
+				text(score + " pts", {
+					size: 32,
+					width: 600,
+					font: "sink", // there're 4 built-in fonts: "apl386", "apl386o", "sink", and "sinko"
+				}),
 			]);
 		});
 
 		const gameScene = scene("game", async () => {
+			currentFrame = 0;
+			randomCycle = 0;
+			let moves: any = [];
+
+			// Secure seeding logic
+			const seed = "appwrite"; // TODO: Random seed
+			const getRandomNumber = () => {
+				const generator = seedrandom(seed + "_" + currentFrame + "_" + randomCycle);
+				const randomNumber = generator();
+
+				randomCycle++;
+				return randomNumber;
+			}
+
 			// Render background
 			const bgSprite = await loadSprite('bg', '/background_brown.png');
 			const bg = add([
@@ -33,7 +112,7 @@
 					pos(18, 10),
 					'wall',
 					rect(g.width() - 36, 8),
-					color(Color.fromArray([148, 89, 36])),
+					color(g.Color.fromArray([148, 89, 36])),
 					area(),
 					body(),
 					gravity(0),
@@ -44,7 +123,7 @@
 					g.origin('topright'),
 					'wall',
 					rect(8, g.height() - 20),
-					color(Color.fromArray([148, 89, 36])),
+					color(g.Color.fromArray([148, 89, 36])),
 					area(),
 					body(),
 					gravity(0),
@@ -55,7 +134,7 @@
 					'wall',
 					g.origin('botleft'),
 					rect(g.width() - 36, 8),
-					color(Color.fromArray([148, 89, 36])),
+					color(g.Color.fromArray([148, 89, 36])),
 					area(),
 					body(),
 					gravity(0),
@@ -66,7 +145,7 @@
 					'wall',
 					g.origin('topleft'),
 					rect(8, g.height() - 20),
-					color(Color.fromArray([148, 89, 36])),
+					color(g.Color.fromArray([148, 89, 36])),
 					area(),
 					body(),
 					fixed(),
@@ -76,7 +155,7 @@
 
 			// Wall functionality
 			onCollide("player", "wall", (player, wall) => {
-				go("gameOver");
+				go("gameOver", seed, score, moves);
 			});
 
 			// Render player
@@ -97,11 +176,17 @@
 			]);
 
 			// Player movement + controls
+			let score = 0;
+
 			let isRotating = false;
 			let angleAcceleration = 1;
 			let angleForce = 0.05;
 
 			const setRotating = (state: boolean) => {
+				if(state !== isRotating) {
+					moves.push(`${currentFrame};rotating;${state}`);
+				}
+
 				isRotating = state;
 
 				if (!state) {
@@ -135,23 +220,15 @@
 
 					return c;
 				}
-				const getPos = (iteration = 0): {x: number; y: number} => {
-					const randX = Math.random();
-					const randY = Math.random();
+				const getPos = (): {x: number; y: number} => {
+					const randX = getRandomNumber();
+					const randY = getRandomNumber();
 
 					const maxX = g.width() - 400;
 					const maxY = g.height() - 400;
 
 					const x = 200 + Math.round(maxX * randX);
 					const y = 200 + Math.round(maxY * randY);
-
-					if(iteration >= 100) {
-						return {x,y};
-					}
-
-					if(getDistance(x,y, car.pos.x, car.pos.y) < 200) {
-						return getPos(iteration + 1);
-					}
 
 					return {x,y};
 				};
@@ -176,6 +253,8 @@
 			const onPickupCoin = () => {
 				car.speed += 10;
 				angleForce += 0.005;
+				score++;
+				scoreText.text = score + " pts";
 			};
 
 			car.onCollide("coin", (coin) => {
@@ -183,20 +262,58 @@
 				onPickupCoin();
 				setTimeout(() => {
 					spawnCoin();
-				}, 500);
+				}, 200);
+			});
+
+			// Show score
+			const scoreText = add([
+				pos(32, 32),
+				text("0 pts", {
+					size: 32,
+					width: 600,
+					font: "sink", // there're 4 built-in fonts: "apl386", "apl386o", "sink", and "sinko"
+				}),
+			]);
+
+			// afterInit
+			onUpdate(() => {
+				currentFrame++;
 			});
 		});
 
-		go("game");
+		go("menu");
 	});
 </script>
+
+<a href="/" class="back">
+	<svg xmlns="http://www.w3.org/2000/svg" style="width: 20px; margin-right: 8px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+		<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+	  </svg>
+	<span>Back to Home</span>
+</a>
 
 <div class="bg"><div class="bg-child" /></div>
 
 <div id="game" />
 
 <style global>
+	.back {
+		position: absolute;
+		left: 16px;
+		top: 16px;
+		color: white;
+		z-index: 40;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
 	#game {
+		user-select: none;
+		-moz-user-select: none;
+		-webkit-user-select: none;
+		-ms-user-select: none;
+
 		z-index: 30;
 		position: relative;
 		display: block;
