@@ -13,11 +13,19 @@
 			root: document.getElementById('game') as HTMLDivElement
 		});
 
+		// Preload sprites
+		await Promise.all([
+			loadSprite('bg_blue', '/background_blue.png'),
+			loadSprite('bg_red', '/background_red.png'),
+			loadSprite('bg_brown', '/background_brown.png'),
+			loadSprite('car', '/car.png'),
+			loadSprite('coin', '/coin.png')
+		]);
+
 		const menuScene = scene("menu", async () => {
 			// Render background
-			const bgSprite = await loadSprite('bg', '/background_blue.png');
 			const bg = add([
-				sprite('bg', { tiled: true, width: g.width(), height: g.height() }),
+				sprite('bg_blue', { tiled: true, width: g.width(), height: g.height() }),
 				pos(0, 0),
 				fixed()
 			]);
@@ -46,9 +54,8 @@
 			console.log(seed, score, moves);
 
 			// Render background
-			const bgSprite = await loadSprite('bg', '/background_red.png');
 			const bg = add([
-				sprite('bg', { tiled: true, width: g.width(), height: g.height() }),
+				sprite('bg_red', { tiled: true, width: g.width(), height: g.height() }),
 				pos(0, 0),
 				fixed()
 			]);
@@ -99,9 +106,8 @@
 			}
 
 			// Render background
-			const bgSprite = await loadSprite('bg', '/background_brown.png');
 			const bg = add([
-				sprite('bg', { tiled: true, width: g.width(), height: g.height() }),
+				sprite('bg_brown', { tiled: true, width: g.width(), height: g.height() }),
 				pos(0, 0),
 				fixed()
 			]);
@@ -159,7 +165,6 @@
 			});
 
 			// Render player
-			const carSprite = await loadSprite('car', '/car.png');
 			const car = add([
 				sprite('car'),
 				pos(center()),
@@ -210,8 +215,6 @@
 			});
 
 			// Coin spawning
-			const coinSprite = await loadSprite('coin', '/coin.png');
-
 			function spawnCoin() {
 				const getDistance = (x1: number, y1: number, x2: number, y2: number) => {
 					var a = x1 - x2;
