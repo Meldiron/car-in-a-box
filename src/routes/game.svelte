@@ -51,7 +51,13 @@
 		});
 
 		const gameOverScene = scene("gameOver", async (seed, score, moves) => {
-			console.log(seed, score, moves);
+			const validationJson = {
+				seed,
+				score,
+				moves
+			};
+
+			console.log(JSON.stringify(validationJson));
 
 			// Render background
 			const bg = add([
